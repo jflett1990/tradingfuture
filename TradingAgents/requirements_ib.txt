@@ -1,0 +1,41 @@
+# Interactive Brokers Integration Requirements
+# Install with: pip install -r requirements_ib.txt
+
+# Core IB integration
+ib-insync>=0.9.70
+
+# Enhanced dependencies
+prometheus-client>=0.17.0
+rich>=13.0.0
+
+# Existing requirements (ensure compatibility)
+yfinance>=0.2.10
+pandas>=1.5.0
+numpy>=1.21.0
+scikit-learn>=1.1.0
+ta-lib>=0.4.26
+cachetools>=5.2.0
+structlog>=22.1.0
+
+# LangChain ecosystem
+langchain>=0.1.0
+langchain-anthropic>=0.1.0
+langchain-core>=0.1.0
+langgraph>=0.0.30
+
+# Async and networking
+aiohttp>=3.8.0
+websockets>=11.0
+httpx>=0.24.0
+
+# Data and ML
+scipy>=1.9.0
+pydantic>=2.0.0
+
+# News and sentiment
+transformers>=4.25.0
+torch>=1.13.0
+
+# Development and testing
+pytest>=7.0.0
+pytest-asyncio>=0.21.0

@@ -1,6 +1,7 @@
 # TradingAgents/graph/trading_graph.py
 
 import os
+import time
 from pathlib import Path
 import json
 from datetime import date
@@ -14,6 +15,9 @@ from langgraph.prebuilt import ToolNode
 
 from tradingagents.agents import *
 from tradingagents.default_config import DEFAULT_CONFIG
+from tradingagents.config import get_config_manager, ConfigManager
+from tradingagents.utils.logging_config import get_logger, setup_logging
+from tradingagents.utils.exceptions import ConfigurationError, TradingAgentsError
 from tradingagents.agents.utils.memory import FinancialSituationMemory
 from tradingagents.agents.utils.agent_states import (
     AgentState,
@@ -37,6 +41,7 @@ class TradingAgentsGraph:
         selected_analysts=["market", "social", "news", "fundamentals"],
         debug=False,
         config: Dict[str, Any] = None,
+        config_file: Optional[str] = None,
     ):
         """Initialize the trading agents graph and components.
 
@@ -44,18 +49,50 @@ class TradingAgentsGraph:
             selected_analysts: List of analyst types to include
             debug: Whether to run in debug mode
             config: Configuration dictionary. If None, uses default config
+            config_file: Path to configuration file
         """
         self.debug = debug
-        self.config = config or DEFAULT_CONFIG
+        
+        try:
+            # Initialize configuration management
+            if config:
+                # Legacy compatibility: use provided config dict
+                self.config = config
+                self.config_manager = None
+            else:
+                # Use new config management system
+                self.config_manager = get_config_manager(config_file)
+                if not self.config_manager.validate_config():
+                    raise ConfigurationError("Configuration validation failed")
+                
+                self.config = self.config_manager.to_dict()
+                
+                # Create necessary directories
+                self.config_manager.create_directories()
+            
+            # Set up logging
+            logs_dir = None
+            if self.config_manager:
+                logs_dir = self.config_manager.get_path_config().logs_dir
+            setup_logging(logs_dir, debug)
+            self.logger = get_logger()
+            
+            self.logger.log_agent_action("system", "initializing", {"debug": debug, "analysts": selected_analysts})
 
-        # Update the interface's config
-        set_config(self.config)
+            # Update the interface's config
+            set_config(self.config)
 
-        # Create necessary directories
-        os.makedirs(
-            os.path.join(self.config["project_dir"], "dataflows/data_cache"),
-            exist_ok=True,
-        )
+            # Create necessary directories (legacy support)
+            if not self.config_manager:
+                os.makedirs(
+                    os.path.join(self.config["project_dir"], "dataflows/data_cache"),
+                    exist_ok=True,
+                )
+                
+        except Exception as e:
+            if hasattr(self, 'logger'):
+                self.logger.log_error(e, {"phase": "initialization"})
+            raise ConfigurationError(f"Failed to initialize TradingAgents: {str(e)}") from e
 
         # Initialize LLMs
         if self.config["llm_provider"].lower() == "openai" or self.config["llm_provider"] == "ollama" or self.config["llm_provider"] == "openrouter":
@@ -156,38 +193,89 @@ class TradingAgentsGraph:
 
     def propagate(self, company_name, trade_date):
         """Run the trading agents graph for a company on a specific date."""
+        
+        start_time = time.time()
+        
+        try:
+            self.ticker = company_name
+            
+            # Log start of analysis
+            with self.logger.context(ticker=company_name, trade_date=str(trade_date), operation="propagate"):
+                self.logger.log_agent_action("system", "starting_analysis", {
+                    "company": company_name, 
+                    "date": str(trade_date)
+                })
 
-        self.ticker = company_name
+                # Initialize state
+                init_agent_state = self.propagator.create_initial_state(
+                    company_name, trade_date
+                )
+                args = self.propagator.get_graph_args()
 
-        # Initialize state
-        init_agent_state = self.propagator.create_initial_state(
-            company_name, trade_date
-        )
-        args = self.propagator.get_graph_args()
+                if self.debug:
+                    # Debug mode with tracing
+                    trace = []
+                    for chunk in self.graph.stream(init_agent_state, **args):
+                        if len(chunk["messages"]) == 0:
+                            pass
+                        else:
+                            chunk["messages"][-1].pretty_print()
+                            trace.append(chunk)
 
-        if self.debug:
-            # Debug mode with tracing
-            trace = []
-            for chunk in self.graph.stream(init_agent_state, **args):
-                if len(chunk["messages"]) == 0:
-                    pass
+                    final_state = trace[-1]
                 else:
-                    chunk["messages"][-1].pretty_print()
-                    trace.append(chunk)
+                    # Standard mode without tracing
+                    final_state = self.graph.invoke(init_agent_state, **args)
 
-            final_state = trace[-1]
-        else:
-            # Standard mode without tracing
-            final_state = self.graph.invoke(init_agent_state, **args)
+                # Store current state for reflection
+                self.curr_state = final_state
 
-        # Store current state for reflection
-        self.curr_state = final_state
+                # Log state
+                self._log_state(trade_date, final_state)
+                
+                # Process and return results
+                processed_signal = self.process_signal(final_state["final_trade_decision"])
+                
+                # Log completion
+                duration = time.time() - start_time
+                self.logger.log_performance("propagate", duration, {
+                    "company": company_name,
+                    "date": str(trade_date),
+                    "success": True
+                })
+                
+                self.logger.log_agent_action("system", "analysis_complete", {
+                    "company": company_name,
+                    "date": str(trade_date),
+                    "duration": duration
+                })
 
-        # Log state
-        self._log_state(trade_date, final_state)
-
-        # Return decision and processed signal
-        return final_state, self.process_signal(final_state["final_trade_decision"])
+                return final_state, processed_signal
+                
+        except Exception as e:
+            duration = time.time() - start_time
+            
+            # Log error with context
+            error_context = {
+                "company": company_name,
+                "date": str(trade_date),
+                "duration": duration,
+                "phase": "propagate"
+            }
+            
+            if hasattr(self, 'logger'):
+                self.logger.log_error(e, error_context)
+                self.logger.log_performance("propagate", duration, {
+                    **error_context,
+                    "success": False
+                })
+            
+            # Re-raise as TradingAgentsError with context
+            raise TradingAgentsError(
+                f"Failed to analyze {company_name} for {trade_date}: {str(e)}",
+                context=error_context,
+                original_exception=e
+            ) from e
 
     def _log_state(self, trade_date, final_state):
         """Log the final state to a JSON file."""

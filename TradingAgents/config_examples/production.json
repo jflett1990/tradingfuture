@@ -1,0 +1,13 @@
+{
+  "llm_provider": "openai",
+  "deep_think_llm": "gpt-4",
+  "quick_think_llm": "gpt-3.5-turbo",
+  "backend_url": "https://api.openai.com/v1",
+  "trading_mode": "stocks",
+  "max_leverage": 5,
+  "online_tools": true,
+  "max_debate_rounds": 2,
+  "max_risk_discuss_rounds": 2,
+  "enable_audit_logging": true,
+  "max_api_calls_per_minute": 30
+}

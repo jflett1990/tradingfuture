@@ -1,0 +1,147 @@
+# Pre-commit configuration for TradingAgents
+# See https://pre-commit.com for more information
+
+repos:
+  # Python code formatting and linting
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        language_version: python3.10
+        args: ["--line-length=88"]
+
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: v0.1.9
+    hooks:
+      - id: ruff
+        args: ["--fix", "--exit-non-zero-on-fix"]
+
+  # Import sorting
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ["--profile", "black"]
+
+  # Type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-requests, types-redis, pydantic]
+        args: ["--ignore-missing-imports", "--disallow-untyped-defs"]
+
+  # Security scanning
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.5
+    hooks:
+      - id: bandit
+        args: ["-c", "pyproject.toml"]
+        additional_dependencies: ["bandit[toml]"]
+        exclude: ^tests/
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: debug-statements
+      - id: check-docstring-first
+
+  # Environment and secrets checking
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: package.lock.json
+
+  # Documentation checks
+  - repo: https://github.com/pycqa/pydocstyle
+    rev: 6.3.0
+    hooks:
+      - id: pydocstyle
+        args: ["--convention=google"]
+        match: ^tradingagents/
+
+  # Jupyter notebook cleaning
+  - repo: https://github.com/nbQA-dev/nbQA
+    rev: 1.7.1
+    hooks:
+      - id: nbqa-black
+        additional_dependencies: [black==23.12.1]
+      - id: nbqa-ruff
+        additional_dependencies: [ruff==0.1.9]
+
+  # Docker and infrastructure
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
+        entry: hadolint
+        language: docker_image
+        types: [dockerfile]
+
+  # Trading-specific checks
+  - repo: local
+    hooks:
+      - id: trading-config-check
+        name: Trading Configuration Validation
+        entry: python scripts/validate_trading_config.py
+        language: python
+        files: ^tradingagents/.*\.py$
+        pass_filenames: false
+
+      - id: api-key-check
+        name: API Key Security Check
+        entry: sh -c 'grep -r "api_key\s*=" --include="*.py" . && exit 1 || exit 0'
+        language: system
+        pass_filenames: false
+
+      - id: futures-contract-validation
+        name: Futures Contract Validation
+        entry: python scripts/validate_futures_contracts.py
+        language: python
+        files: ^tradingagents/strategies/.*\.py$
+        pass_filenames: false
+
+# Global configuration
+exclude: |
+  (?x)^(
+    \.git/|
+    \.venv/|
+    venv/|
+    \.tox/|
+    build/|
+    dist/|
+    \.eggs/|
+    .*\.egg-info/|
+    __pycache__/|
+    \.pytest_cache/|
+    \.mypy_cache/|
+    \.coverage|
+    htmlcov/|
+    \.DS_Store|
+    Thumbs\.db|
+    uv\.lock
+  )$
+
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false

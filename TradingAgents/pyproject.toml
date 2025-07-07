@@ -1,34 +1,233 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "tradingagents"
 version = "0.1.0"
-description = "Add your description here"
+description = "AI-Powered Futures Trading System with Ultra-Fast Scalping and Multi-Timeframe Analysis"
 readme = "README.md"
+license = {file = "LICENSE"}
 requires-python = ">=3.10"
+authors = [
+    {name = "TradingFuture Team"},
+]
+keywords = ["trading", "futures", "ai", "scalping", "langchain", "interactive-brokers"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
+
 dependencies = [
+    # Core trading and data
+    "pandas>=2.3.0",
+    "numpy>=1.24.0",
+    "yfinance>=0.2.63",
     "akshare>=1.16.98",
+    "stockstats>=0.6.5",
     "backtrader>=1.9.78.123",
-    "chainlit>=2.5.5",
-    "chromadb>=1.0.12",
+    "ta-lib>=0.4.26",
+    "tushare>=1.4.21",
     "eodhd>=1.0.32",
-    "feedparser>=6.0.11",
     "finnhub-python>=2.4.23",
+    
+    # Interactive Brokers
+    "ib-insync>=0.9.70",
+    
+    # AI/ML and LangChain ecosystem
+    "langchain>=0.1.0",
     "langchain-anthropic>=0.3.15",
     "langchain-experimental>=0.3.4",
     "langchain-google-genai>=2.1.5",
     "langchain-openai>=0.3.23",
+    "langchain-core>=0.1.0",
     "langgraph>=0.4.8",
-    "pandas>=2.3.0",
-    "parsel>=1.10.0",
+    "transformers>=4.25.0",
+    "torch>=1.13.0",
+    "scikit-learn>=1.1.0",
+    
+    # Web scraping and news
+    "feedparser>=6.0.11",
     "praw>=7.8.1",
-    "pytz>=2025.2",
-    "questionary>=2.1.0",
-    "redis>=6.2.0",
+    "parsel>=1.10.0",
     "requests>=2.32.4",
+    "aiohttp>=3.8.0",
+    "httpx>=0.24.0",
+    
+    # Data storage and caching
+    "redis>=6.2.0",
+    "chromadb>=1.0.12",
+    "cachetools>=5.2.0",
+    
+    # Utilities and infrastructure
     "rich>=14.0.0",
-    "setuptools>=80.9.0",
-    "stockstats>=0.6.5",
+    "questionary>=2.1.0",
     "tqdm>=4.67.1",
-    "tushare>=1.4.21",
+    "setuptools>=80.9.0",
     "typing-extensions>=4.14.0",
-    "yfinance>=0.2.63",
+    "pytz>=2025.2",
+    "pydantic>=2.0.0",
+    "structlog>=22.1.0",
+    
+    # Monitoring and metrics
+    "prometheus-client>=0.17.0",
+    
+    # Async and networking
+    "websockets>=11.0",
+    
+    # Math and science
+    "scipy>=1.9.0",
+    
+    # Interactive interfaces
+    "chainlit>=2.5.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    # Testing
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+    
+    # Code quality
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+    "pre-commit>=3.0.0",
+    
+    # Development tools
+    "ipython>=8.0.0",
+    "jupyter>=1.0.0",
+    "notebook>=6.5.0",
+]
+
+production = [
+    # Production monitoring
+    "gunicorn>=21.0.0",
+    "uvicorn>=0.23.0",
+    
+    # Production security
+    "cryptography>=41.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/jflett1990/tradingfuture"
+Documentation = "https://github.com/jflett1990/tradingfuture/blob/main/README.md"
+Repository = "https://github.com/jflett1990/tradingfuture"
+Issues = "https://github.com/jflett1990/tradingfuture/issues"
+
+[project.scripts]
+tradingagents = "tradingagents.cli.main:main"
+
+# Development tools configuration
+[tool.black]
+line-length = 88
+target-version = ['py310', 'py311', 'py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501",  # line too long, handled by black
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+]
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.mypy]
+python_version = "3.10"
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "ib_insync.*",
+    "backtrader.*",
+    "ta_lib.*",
+    "akshare.*",
+    "tushare.*",
+    "finnhub.*",
+    "eodhd.*",
+    "stockstats.*",
+    "chainlit.*",
+    "chromadb.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers --strict-config"
+testpaths = [
+    "tests",
+]
+filterwarnings = [
+    "error",
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+]
+markers = [
+    "unit: marks tests as unit tests",
+    "integration: marks tests as integration tests", 
+    "slow: marks tests as slow",
+    "live_data: marks tests that require live data feeds",
+    "paper_trading: marks tests for paper trading",
+]
+
+[tool.coverage.run]
+source = ["tradingagents"]
+omit = [
+    "*/tests/*",
+    "*/venv/*",
+    "*/.venv/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
 ]
